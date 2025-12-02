@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Movie Booking System</title>
+  <style>
+    :root{--accent:#e91e63;--primary:#4285f4;--bg:#f6f7fb}
+    *{box-sizing:border-box}
+    body{font-family:Inter, system-ui, Arial, Helvetica, sans-serif;background:var(--bg);margin:0;color:#1f2937}
+
+    header{background:#111827;color:white;padding:16px 20px;display:flex;align-items:center;gap:16px}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo svg{height:36px;width:36px}
+    .brand{font-weight:700;font-size:20px}
+
+    .wrap{width:min(1100px,95%);margin:24px auto}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .search{display:flex;gap:8px}
+    .search input{padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb}
+    .btn{background:var(--primary);color:#fff;padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+    .movie-card{background:white;border-radius:10px;padding:12px;box-shadow:0 4px 14px rgba(16,24,40,0.06);display:flex;flex-direction:column;min-height:360px}
+    
+    /* Poster + image */
+    .poster{height:260px;border-radius:8px;overflow:hidden;position:relative;background:linear-gradient(135deg,#93c5fd,#c7b3ff);display:block}
+    .poster img{width:100%;height:100%;object-fit:cover;display:block}
+    .poster-title{
+      position:absolute;
+      left:12px;
+      bottom:12px;
+      color:white;
+      font-weight:700;
+      text-shadow:0 6px 18px rgba(0,0,0,0.45);
+      background:linear-gradient(90deg, rgba(0,0,0,0.18), rgba(0,0,0,0.10));
+      padding:6px 10px;
+      border-radius:6px;
+      font-size:14px;
+    }
+
+    .meta{margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .small{font-size:13px;color:#6b7280}
+
+    .book-btn{background:var(--accent);color:white;padding:10px;border-radius:8px;border:none;cursor:pointer}
+
+    /* Booking view */
+    .booking{background:white;padding:18px;border-radius:10px;box-shadow:0 6px 20px rgba(2,6,23,0.08);margin-top:18px}
+    .showtimes{display:flex;gap:8px;flex-wrap:wrap}
+    .showtimes button{padding:8px 12px;border-radius:8px;border:1px solid #e5e7eb;background:white;cursor:pointer}
+    .showtimes button.active{border-color:var(--primary);background:linear-gradient(180deg,rgba(66,133,244,0.12),white)}
+
+    .seats{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;max-width:520px;margin-top:12px}
+    .seat{height:30px;border-radius:6px;background:#d1d5db;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px}
+    .seat.occupied{background:#111827;color:white;cursor:not-allowed}
+    .seat.selected{background:#4CAF50;color:white}
+
+    .info{margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .pill{background:#f3f4f6;padding:8px 12px;border-radius:999px;font-weight:600}
+
+    .success{display:none;margin-top:12px;padding:12px;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px}
+
+    /* responsive */
+    @media (max-width:640px){
+      .poster{height:180px}
+      .movie-card{min-height:unset}
+      .seats{grid-template-columns:repeat(5,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <!-- simple SVG logo -->
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+        <rect width="48" height="48" rx="8" fill="#111827"/>
+        <path d="M12 16h24v4H12zM12 24h24v4H12zM12 32h12v4H12z" fill="#fff" opacity="0.95"/>
+      </svg>
+      <div>
+        <div class="brand">CineBook</div>
+        <div style="font-size:12px;color:#cbd5e1;margin-top:2px">Book movies. Pick seats. Enjoy.</div>
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <div style="font-size:14px;color:#9ca3af">Welcome, USER</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="topbar">
+      <div style="display:flex;gap:12px;align-items:center">
+        <h2 style="margin:0">Now Showing</h2>
+        <div class="small">Choose a movie to book seats</div>
+      </div>
+      <div class="search">
+        <input id="searchInput" placeholder="Search movies or genres" />
+        <button class="btn" onclick="renderMovies()">Search</button>
+      </div>
+    </div>
+
+    <section id="homeView">
+      <div class="grid" id="moviesGrid"></div>
+    </section>
+
+    <section id="bookingView" style="display:none">
+      <button class="btn" onclick="showHome()">← Back to Home</button>
+
+      <div id="bookingArea" class="booking">
+        <!-- booking details rendered here -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // sample movies data (make sure these files exist in your assets folder)
+    const MOVIES = [
+      {id:1,title:'The Avengers',genre:'Action',runtime:'2h 10m',rating:'PG-13',price:180,image:'assets/download.webp'},
+      {id:2,title:'Inception',genre:'Sci-Fi',runtime:'2h 28m',rating:'PG-13',price:220,image:'assets/Inception.png'},
+      {id:3,title:'The Lion King',genre:'Animation',runtime:'1h 58m',rating:'G',price:150,image:'assets/The Lion King.webp'},
+      {id:4,title:'Interstellar',genre:'Sci-Fi',runtime:'2h 49m',rating:'PG-13',price:240,image:'assets/Interstellar.jpg'},
+      {id:5,title:'Joker',genre:'Drama',runtime:'2h 2m',rating:'R',price:200,image:'assets/Joker.webp'}
+    ];
+
+    // simple in-memory occupied seats per movie+showtime key
+    // format: occupied["movieId|showtime"] = ["A1","B3"]
+    const occupied = {};
+
+    function renderMovies(){
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const container = document.getElementById('moviesGrid');
+      container.innerHTML = '';
+      const filtered = MOVIES.filter(m => m.title.toLowerCase().includes(q) || m.genre.toLowerCase().includes(q));
+      filtered.forEach(m => {
+        // encode image path (handles spaces)
+        const imgSrc = encodeURI(m.image);
+
+        const card = document.createElement('div');
+        card.className = 'movie-card';
+        card.innerHTML = `
+          <div class="poster">
+            <img src="${imgSrc}" alt="${m.title} poster" onerror="this.onerror=null;this.src='assets/placeholder.png';" />
+            <div class="poster-title">${m.title}</div>
+          </div>
+
+          <div class="meta">
+            <div style="flex:1">
+              <div style="font-weight:700">${m.title}</div>
+              <div class="small">${m.genre} • ${m.runtime}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="small">₹${m.price} / seat</div>
+              <button class="book-btn" onclick="openBooking(${m.id})">Book</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      // if no movies found
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:#6b7280">No movies found</div>';
+      }
+    }
+
+    // generate seat labels rows A-D and 10 cols
+    function seatLabel(row,col){
+      return String.fromCharCode(65+row) + (col+1);
+    }
+
+    function openBooking(movieId){
+      const movie = MOVIES.find(m=>m.id===movieId);
+      if(!movie) return;
+      document.getElementById('homeView').style.display='none';
+      document.getElementById('bookingView').style.display='block';
+      const bookingArea = document.getElementById('bookingArea');
+      bookingArea.innerHTML = '';
+
+      // show movie details and showtimes
+      const showtimes = ['10:00 AM','1:00 PM','6:00 PM','9:00 PM'];
+      let selectedShow = showtimes[0];
+
+      const html = document.createElement('div');
+      html.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;gap:12px;align-items:center">
+            <img src="${encodeURI(movie.image)}" alt="${movie.title}" style="width:72px;height:96px;object-fit:cover;border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,0.12)"/>
+            <div>
+              <h3 style="margin:0">${movie.title}</h3>
+              <div class="small">${movie.genre} • ${movie.runtime} • ${movie.rating}</div>
+            </div>
+          </div>
+          <div class="small">Price per seat: <strong>₹${movie.price}</strong></div>
+        </div>
+
+        <h4 style="margin-top:14px">Select Showtime</h4>
+        <div id="showtimes" class="showtimes"></div>
+
+        <h4 style="margin-top:14px">Select Seats</h4>
+        <div id="seatLegend" style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+          <div class="pill">Selected: <span id="selectedCount">0</span></div>
+          <div class="pill">Total: ₹<span id="totalPrice">0</span></div>
+        </div>
+
+        <div id="seatsWrap">
+          <div class="seats" id="seatsGrid"></div>
+        </div>
+
+        <div style="margin-top:14px">
+          <button class="book-btn" id="confirmBtn">Book Now</button>
+        </div>
+
+        <div id="success" class="success"></div>
+      `;
+      bookingArea.appendChild(html);
+
+      const showtimesEl = document.getElementById('showtimes');
+      showtimes.forEach((st,i)=>{
+        const btn = document.createElement('button');
+        btn.textContent = st;
+        if(i===0) btn.classList.add('active');
+        btn.addEventListener('click',()=>{
+          // toggle active
+          [...showtimesEl.children].forEach(c=>c.classList.remove('active'));
+          btn.classList.add('active');
+          selectedShow = st;
+          renderSeats(movie.id, selectedShow);
+        });
+        showtimesEl.appendChild(btn);
+      });
+
+      // render seats initially
+      renderSeats(movie.id, selectedShow);
+
+      document.getElementById('confirmBtn').onclick = ()=>{
+        const selected = [...document.querySelectorAll('.seat.selected')].map(s=>s.dataset.label);
+        if(selected.length===0){
+          alert('Please select at least one seat');
+          return;
+        }
+        // mark them as occupied
+        const key = movie.id + '|' + selectedShow;
+        if(!occupied[key]) occupied[key]=[];
+        occupied[key] = occupied[key].concat(selected);
+
+        const total = selected.length * movie.price;
+        const successEl = document.getElementById('success');
+        successEl.style.display='block';
+        successEl.innerHTML = `<strong>🎉 Booking Confirmed!</strong><br/>Movie: ${movie.title} <br/>Show: ${selectedShow} <br/>Seats: ${selected.join(', ')} <br/>Total: ₹${total}`;
+
+        // re-render seats to reflect occupied
+        renderSeats(movie.id, selectedShow);
+      };
+
+    }
+
+    function renderSeats(movieId, showtime){
+      const grid = document.getElementById('seatsGrid');
+      grid.innerHTML = '';
+      const rows = 4; const cols = 10;
+      const key = movieId + '|' + showtime;
+      const occ = occupied[key] || [];
+
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const label = seatLabel(r,c);
+          const div = document.createElement('div');
+          div.className = 'seat';
+          div.textContent = label;
+          div.dataset.label = label;
+          if(occ.includes(label)) div.classList.add('occupied');
+          div.addEventListener('click',()=>{
+            if(div.classList.contains('occupied')) return;
+            div.classList.toggle('selected');
+            updateSummary();
+          });
+          grid.appendChild(div);
+        }
+      }
+
+      // update summary
+      updateSummary();
+    }
+
+    function updateSummary(){
+      const selectedEls = document.querySelectorAll('.seat.selected');
+      const count = selectedEls.length;
+      const movieTitle = document.querySelector('#bookingArea h3')?.textContent || '';
+      const movie = MOVIES.find(m=>m.title===movieTitle);
+      const pricePer = movie ? movie.price : 0;
+      document.getElementById('selectedCount').textContent = count;
+      document.getElementById('totalPrice').textContent = count * pricePer;
+    }
+
+    function showHome(){
+      document.getElementById('homeView').style.display='block';
+      document.getElementById('bookingView').style.display='none';
+    }
+
+    // initial render
+    renderMovies();
+  </script>
+</body>
+</html>
